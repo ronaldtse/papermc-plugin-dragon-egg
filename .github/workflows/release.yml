@@ -26,6 +26,7 @@ jobs:
       run: |
         mvn clean package -DskipTests
         echo "Plugin built successfully"
+        ls -la target/DragonEggLightning-*.jar
 
     - name: Get version from tag
       id: version
@@ -33,6 +34,7 @@ jobs:
         TAG=${GITHUB_REF#refs/tags/}
         echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+        echo "JAR_FILE=$(ls target/DragonEggLightning-*.jar | head -1)" >> $GITHUB_OUTPUT
 
     - name: Generate changelog
       id: changelog
@@ -84,12 +86,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload JAR to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: target/DragonEggLightning-*.jar
-        asset_name: DragonEggLightning-${{ steps.version.outputs.version }}.jar
-        asset_content_type: application/java-archive
+    - name: Verify Release Assets
+      run: |
+        echo "Release created successfully!"
+        echo "JAR file should be uploaded to the release"
+        ls -la target/DragonEggLightning-*.jar

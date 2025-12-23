@@ -40,6 +40,16 @@ jobs:
     - name: Generate test report
       run: mvn surefire-report:report
 
+    - name: Build plugin JAR
+      run: mvn package -DskipTests
+
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: plugin-jar-java-${{ matrix.java-version }}
+        path: target/DragonEggLightning-*.jar
+        retention-days: 30
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
@@ -48,9 +58,11 @@ jobs:
         path: |
           target/surefire-reports/
           target/site/surefire-report.html
+        retention-days: 30
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
+      if: matrix.java-version == '21'
       with:
         files: ./target/site/jacoco/jacoco.xml
         flags: unittests
