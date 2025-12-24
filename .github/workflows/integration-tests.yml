@@ -2,12 +2,11 @@ name: Integration Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
-  schedule:
-    # Run integration tests daily at 2 AM UTC
-    - cron: '0 2 * * *'
+  # schedule:
+  #   # Run integration tests daily at 2 AM UTC
+  #   - cron: '0 2 * * *'
 
 jobs:
   integration-test:
@@ -208,29 +207,61 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
 
-    - name: Test Docker image builds
+    - name: Test Docker Compose configuration
       run: |
         echo "Testing that Docker Compose configuration is valid..."
         docker compose config > /dev/null
         echo "✅ Docker Compose configuration is valid"
 
-    - name: Build plugin for test
+    - name: Test multi-stage Docker build
       run: |
-        mvn clean package -DskipTests
-        echo "Plugin built successfully"
+        echo "Testing Docker multi-stage build with plugin compilation..."
+        docker build -t dragon-egg-lightning:test .
+        echo "✅ Docker image built successfully"
 
-    - name: Test plugin JAR in clean environment
+    - name: Verify plugin JAR in built image
       run: |
-        echo "Testing plugin JAR in isolated environment..."
-        docker run --rm -v $(pwd)/target:/plugin alpine:latest \
-          sh -c '
-            apk add --no-cache file
-            ls -la /plugin/DragonEggLightning-*.jar
-            file /plugin/DragonEggLightning-*.jar
-            if file /plugin/DragonEggLightning-*.jar | grep -q "Java"; then
-              echo "✅ JAR file appears to be valid Java bytecode"
-            else
-              echo "❌ JAR file does not appear to be valid Java bytecode"
-              exit 1
-            fi
-          '
+        echo "Verifying plugin JAR is present in the Docker image..."
+        docker run --rm dragon-egg-lightning:test \
+          ls -la /data/plugins/DragonEggLightning.jar
+        echo "✅ Plugin JAR found in Docker image"
+
+    - name: Test JAR file integrity
+      run: |
+        echo "Testing JAR file integrity..."
+        mvn clean package -DskipTests
+        JAR_FILE="target/DragonEggLightning-1.0.0.jar"
+
+        # Test JAR can be extracted
+        if jar -tf "$JAR_FILE" > /dev/null 2>&1; then
+          echo "✅ JAR file can be extracted successfully"
+        else
+          echo "❌ JAR file extraction failed"
+          exit 1
+        fi
+
+        # Check for expected contents
+        if jar -tf "$JAR_FILE" | grep -q "com/dragonegg/lightning/DragonEggLightningPlugin.class"; then
+          echo "✅ Main plugin class found in JAR"
+        else
+          echo "❌ Main plugin class not found in JAR"
+          exit 1
+        fi
+
+        if jar -tf "$JAR_FILE" | grep -q "plugin.yml"; then
+          echo "✅ Plugin configuration found in JAR"
+        else
+          echo "❌ Plugin configuration not found in JAR"
+          exit 1
+        fi
+
+        # Test with unzip as alternative validation
+        if unzip -t "$JAR_FILE" > /dev/null 2>&1; then
+          echo "✅ JAR file passes unzip validation"
+        else
+          echo "❌ JAR file fails unzip validation"
+          exit 1
+        fi
+
+        echo "JAR file size: $(du -h "$JAR_FILE" | cut -f1)"
+        echo "All JAR integrity tests passed!"

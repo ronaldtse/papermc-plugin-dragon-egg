@@ -1,43 +1,32 @@
-version: '3.8'
-
 services:
   minecraft:
-    image: marctv/minecraft-papermc-server:1.21.8
-    container_name: papermc-dragonegg
+    build:
+      context: .
+      args:
+        PLUGIN_VERSION: ${PLUGIN_VERSION}
+    image: dragon-egg-lightning:latest
+    container_name: ${CONTAINER_NAME}
     restart: unless-stopped
     ports:
       - "25565:25565"
+      - "25575:25575"
     environment:
-      - MEMORYSIZE=2G
-      - EULA=TRUE  # Automated EULA acceptance
-      - TYPE=PAPER
-      - VERSION=1.21.8
-      - ONLINE_MODE=false  # Allow local testing
-      - MAX_PLAYERS=10
+      - MEMORYSIZE=${MEMORYSIZE}
+      - EULA=${EULA}
+      - TYPE=${TYPE}
+      - VERSION=${VERSION}
+      - ONLINE_MODE=${ONLINE_MODE}
+      - MAX_PLAYERS=${MAX_PLAYERS}
+      - RCON_PORT=${RCON_PORT}
+      - RCON_PASSWORD=${RCON_PASSWORD}
+      - ENABLE_RCON=${ENABLE_RCON}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
     volumes:
-      - ./server-data:/data:rw
-      - ./target/DragonEggLightning-1.0.0.jar:/tmp/DragonEggLightning.jar:ro
-      # Plugin JAR is copied during startup via command: cp /tmp/DragonEggLightning.jar /data/plugins/DragonEggLightning.jar
-    command: >
-      sh -c "
-        cp /tmp/DragonEggLightning.jar /data/plugins/DragonEggLightning.jar &&
-        exec java -Xms${MEMORYSIZE} -Xmx${MEMORYSIZE} \
-          --add-modules=jdk.unsupported \
-          --add-exports=java.base/sun.nio.ch=ALL-UNNAMED \
-          --add-opens=java.base/java.lang=ALL-UNNAMED \
-          --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
-          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-          --add-opens=java.base/java.io=ALL-UNNAMED \
-          --add-opens=java.base/java.net=ALL-UNNAMED \
-          --add-opens=java.base/java.nio=ALL-UNNAMED \
-          --add-opens=java.base/java.util=ALL-UNNAMED \
-          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-          --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED \
-          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-          --add-opens=java.base/sun.security.action=ALL-UNNAMED \
-          -jar /opt/minecraft/paperspigot.jar nogui
-      "
+      # Mount only specific files/directories, not the entire /data
+      - ./server-data/eula.txt:/data/eula.txt:rw
+      - ./server-data/ops.json:/data/ops.json:rw
+      - ./server-data/server.properties:/data/server.properties:rw
+      - ./server-data/world:/data/world:rw
     stdin_open: true
     tty: true
     networks:

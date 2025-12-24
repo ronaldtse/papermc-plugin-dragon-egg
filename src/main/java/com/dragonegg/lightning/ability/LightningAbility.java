@@ -7,7 +7,10 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LightningStrike;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -174,19 +177,26 @@ public class LightningAbility implements Ability {
    * @param target The target entity
    */
   private void executeLightningStrikes(Player player, LivingEntity target) {
+    // Store references to avoid final variable issues
+    final LivingEntity finalTarget = target;
+    final Player finalPlayer = player;
+
     new BukkitRunnable() {
       private int strikeCount = 0;
 
       @Override
       public void run() {
-        // Check if target is still valid
-        if (target.isDead() || !target.isValid()) {
+        // Check if target is still valid (use stored reference)
+        if (finalTarget.isDead() || !finalTarget.isValid()) {
+          player.sendMessage(
+            Component.text("Target is no longer valid!", NamedTextColor.YELLOW)
+          );
           cancel();
           return;
         }
 
         // Check if player still has dragon egg (can be switched mid-cast)
-        if (!hasRequiredItem(player)) {
+        if (!hasRequiredItem(finalPlayer)) {
           player.sendMessage(
             Component.text(
               "Ability cancelled! Dragon Egg removed from offhand.",
@@ -198,8 +208,14 @@ public class LightningAbility implements Ability {
         }
 
         // Strike the target
-        strikeLightning(target);
+        strikeLightning(finalTarget);
         strikeCount++;
+
+        // Send strike message
+        player.sendMessage(
+          Component.text("Lightning strike " + strikeCount + "/" + STRIKE_COUNT + "!",
+                        NamedTextColor.LIGHT_PURPLE)
+        );
 
         // Check if all strikes are done
         if (strikeCount >= STRIKE_COUNT) {
@@ -217,18 +233,30 @@ public class LightningAbility implements Ability {
   private void strikeLightning(LivingEntity target) {
     Location targetLocation = target.getLocation();
 
-    // Create purple lightning visual effect
+    // Create actual lightning strike (use correct entity type)
+    LightningStrike lightning = (LightningStrike) target.getWorld()
+      .spawnEntity(targetLocation, EntityType.LIGHTNING_BOLT);
+
+    // Make it visually purple with particles
     createPurpleLightningEffect(targetLocation);
 
     // Deal damage
     target.damage(DAMAGE_PER_STRIKE);
 
-    // Play sound effect
+    // Play proper thunder sound
     target.getWorld().playSound(
       targetLocation,
-      org.bukkit.Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
-      1.0f,
-      1.5f
+      Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
+      3.0f,
+      1.0f
+    );
+
+    // Play explosion sound for impact
+    target.getWorld().playSound(
+      targetLocation,
+      Sound.ENTITY_DRAGON_FIREBALL_EXPLODE,
+      2.0f,
+      1.0f
     );
   }
 

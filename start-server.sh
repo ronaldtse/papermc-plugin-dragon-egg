@@ -4,24 +4,85 @@
 
 set -e
 
-# Check for reset flag
-RESET=false
-if [[ "$1" == "--reset" ]]; then
-    RESET=true
+# Load environment variables
+if [ -f .env ]; then
+    source .env
+else
+    echo "❌ .env file not found!"
+    exit 1
 fi
+
+# Export variables for Docker
+export PLUGIN_VERSION
+export ADMIN_USERNAME
+
+# Parse arguments
+RESET=false
+CLEAN=false
+
+for arg in "$@"; do
+    case $arg in
+        -r|--rebuild)
+            RESET=true
+            ;;
+        -c|--clean)
+            CLEAN=true
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  -r, --rebuild    Rebuild Docker image and restart server"
+            echo "  -c, --clean      Clean build (Maven clean + fresh Docker image)"
+            echo "  -h, --help       Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0               # Start server normally"
+            echo "  $0 -r            # Rebuild and restart"
+            echo "  $0 -c            # Clean build and start"
+            echo "  $0 -r -c         # Clean rebuild and restart"
+            exit 0
+            ;;
+    esac
+done
 
 echo "================================"
 echo "Starting Paper MC Server"
 echo "================================"
 
-# Handle reset functionality
+# Build the JAR file first (always needed for Docker)
+echo "🔧 Building plugin JAR..."
+if ! mvn clean package -DskipTests; then
+    echo "✗ Failed to build plugin JAR"
+    exit 1
+fi
+
+echo "Plugin version loaded: ${PLUGIN_VERSION}"
+echo "Admin username loaded: ${ADMIN_USERNAME}"
+
+# Handle clean build first
+if [ "$CLEAN" = true ]; then
+    echo "🧹 CLEAN MODE: Cleaning Docker image..."
+    echo ""
+
+    # Force Docker image rebuild
+    RESET=true
+fi
+
+# Handle reset/rebuild functionality
 if [ "$RESET" = true ]; then
-    echo "🔄 RESET MODE: Deleting all Docker volumes and server data..."
+    echo "🔄 REBUILD MODE: Deleting all Docker volumes and server data..."
     echo ""
 
     # Stop and remove container
     echo "Stopping and removing container..."
     docker-compose down 2>/dev/null || true
+    docker stop ${CONTAINER_NAME:-papermc-dragonegg} 2>/dev/null || true
+    docker rm ${CONTAINER_NAME:-papermc-dragonegg} 2>/dev/null || true
+
+    # Remove Docker image to force rebuild
+    echo "Removing Docker image..."
+    docker rmi dragon-egg-lightning:latest 2>/dev/null || true
 
     # Remove all volumes
     echo "Removing all Docker volumes..."
@@ -37,20 +98,38 @@ if [ "$RESET" = true ]; then
     echo ""
 fi
 
-# Find the generated JAR file dynamically (handle different Java versions)
-JAR_FILE=$(find target/ -name "DragonEggLightning-*.jar" | head -1)
+# Check if Docker image exists, if not build it automatically
+if ! docker images | grep -q "dragon-egg-lightning"; then
+    echo "📦 Docker image not found, building automatically..."
+    echo ""
+    echo "Using PLUGIN_VERSION: ${PLUGIN_VERSION}"
+    echo "Using ADMIN_USERNAME: ${ADMIN_USERNAME}"
 
-if [ -z "$JAR_FILE" ]; then
-    echo "✗ Plugin JAR not found!"
-    echo "  Please run ./build.sh first"
-    echo "Checking for JAR files..."
-    ls -la target/ 2>/dev/null || echo "No target directory found"
-    exit 1
+    # Build using docker-compose with environment variables
+    if ! docker-compose build; then
+        echo "✗ Failed to build Docker image"
+        exit 1
+    fi
+
+    echo "✅ Docker image built successfully!"
+    echo ""
+else
+    echo "✅ Docker image found: dragon-egg-lightning:latest"
+    echo "   (Docker will automatically rebuild changed layers if needed)"
 fi
 
-echo "✓ Plugin JAR found: $JAR_FILE"
+# Check if plugin JAR exists (for reference)
+JAR_FILE=$(find target/ -name "DragonEggLightning-${PLUGIN_VERSION}.jar" | head -1)
+if [ -n "$JAR_FILE" ]; then
+    echo "✓ Plugin JAR found: $JAR_FILE"
+fi
 
-# Start Docker container
+echo "✓ Server will be configured with settings from .env file"
+echo "✓ Plugin version: ${PLUGIN_VERSION}"
+echo "✓ Admin username: ${ADMIN_USERNAME}"
+echo ""
+
+# Start Docker container with docker-compose
 echo "Starting Docker container..."
 docker-compose up -d
 
@@ -60,13 +139,21 @@ echo "Server Starting!"
 echo "================================"
 echo ""
 echo "Server will be available on port 25565"
+echo "RCON will be available on port 25575"
 echo ""
 echo "Useful commands:"
-echo "  View logs:      docker logs -f papermc-dragonegg"
-echo "  Server console: docker attach papermc-dragonegg"
+echo "  View logs:      docker logs -f ${CONTAINER_NAME:-papermc-dragonegg}"
+echo "  Server console: docker attach ${CONTAINER_NAME:-papermc-dragonegg}"
 echo "  Stop server:    ./stop-server.sh"
-echo "  Reset server:   ./start-server.sh --reset"
+echo "  Rebuild:        ./start-server.sh -r"
+echo "  Clean rebuild:  ./start-server.sh -c"
 echo ""
 echo "Waiting for server to start (this may take a minute)..."
-sleep 5
-docker logs papermc-dragonegg
+sleep 10
+
+# Show initial logs
+docker logs ${CONTAINER_NAME:-papermc-dragonegg} --tail 30
+
+echo ""
+echo "✅ Server should be starting up. Check logs above for any issues."
+echo "   Plugin will load automatically once the server is ready."
