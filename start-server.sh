@@ -8,8 +8,8 @@ echo "================================"
 echo "Starting Paper MC Server"
 echo "================================"
 
-# Check if plugin JAR exists
-if [ ! -f "target/DragonEggLightning-1.0.0.jar" ]; then
+# Check if plugin JAR exists (with the correct filename from pom.xml finalName)
+if [ ! -f "target/DragonEggLightning-1.0.0-plugin-java21.jar" ]; then
     echo "✗ Plugin JAR not found!"
     echo "  Please run ./build.sh first"
     exit 1
