@@ -57,8 +57,11 @@ jobs:
     - name: Setup server data from fixtures
       run: |
         cp -r fixtures/server-data ./server-data
-        echo "Copied server data from fixtures (single source of truth)"
+        mkdir -p server-data/plugins
+        cp target/DragonEggLightning-*.jar server-data/plugins/DragonEggLightning.jar
+        echo "Copied server data from fixtures and plugin JAR"
         ls -la server-data/
+        ls -la server-data/plugins/
 
     - name: Start Paper server with plugin
       run: |

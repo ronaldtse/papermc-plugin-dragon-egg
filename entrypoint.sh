@@ -100,8 +100,9 @@ if [ -n "${ADMIN_USERNAME}" ]; then
             ADMIN_UUID=$(generate_uuid)
             jq --arg name "${ADMIN_USERNAME}" --arg uuid "${ADMIN_UUID}" \
                '. += [{"name": $name, "uuid": $uuid, "level": 4, "bypassesPlayerLimit": false}]' \
-               /data/ops.json > /data/ops.json.tmp
-            mv /data/ops.json.tmp /data/ops.json
+               /data/ops.json > /tmp/ops.json.tmp
+            cat /tmp/ops.json.tmp > /data/ops.json
+            rm -f /tmp/ops.json.tmp
             echo "✅ Admin user '${ADMIN_USERNAME}' added to ops.json"
         fi
     else

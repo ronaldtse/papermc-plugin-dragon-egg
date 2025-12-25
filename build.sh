@@ -12,6 +12,9 @@ else
     exit 1
 fi
 
+# Extract version from pom.xml (single source of truth)
+PLUGIN_VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+
 echo "================================"
 echo "Building Dragon Egg Lightning Plugin"
 echo "================================"

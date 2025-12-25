@@ -1,0 +1,28 @@
+# Docker ignore file
+
+# Exclude local development files
+.git
+.gitignore
+.github
+*.md
+!README.md
+
+# Exclude server data
+server-data/
+
+# Exclude IDE files
+.idea/
+*.iml
+.vscode/
+
+# Exclude test files
+src/test/
+
+# Exclude build artifacts that aren't needed in Docker
+target/surefire-reports/
+target/classes/
+target/test-classes/
+target/maven-status/
+target/maven-archiver/
+
+# Keep target/*.jar for the plugin
