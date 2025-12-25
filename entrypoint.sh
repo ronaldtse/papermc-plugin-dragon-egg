@@ -2,7 +2,18 @@
 
 set -e
 
-# Function to generate UUID (with fallbacks)
+# Function to generate offline-mode UUID from username
+# Minecraft offline mode uses MD5 hash of "OfflinePlayer:<name>"
+generate_offline_uuid() {
+    local name="$1"
+    # Generate MD5 hash of "OfflinePlayer:<name>" and format as UUID
+    local hash=$(echo -n "OfflinePlayer:${name}" | md5sum | cut -d' ' -f1)
+    # Format as UUID (8-4-4-4-12) with version 3 marker
+    local uuid="${hash:0:8}-${hash:8:4}-3${hash:13:3}-${hash:16:4}-${hash:20:12}"
+    echo "$uuid"
+}
+
+# Function to generate random UUID (with fallbacks) - for online mode
 generate_uuid() {
     # Try uuidgen first
     if command -v uuidgen >/dev/null 2>&1; then
@@ -95,29 +106,22 @@ fi
 if [ -n "${ADMIN_USERNAME}" ]; then
     echo "Setting up admin user: ${ADMIN_USERNAME}"
 
+    # Generate offline-mode UUID (matches what Minecraft generates for this username)
+    ADMIN_UUID=$(generate_offline_uuid "${ADMIN_USERNAME}")
+    echo "   Offline UUID: ${ADMIN_UUID}"
+
     if check_jq; then
-        # Check if user already exists
-        if jq -r ".[] | select(.name == \"${ADMIN_USERNAME}\") | .name" /data/ops.json 2>/dev/null | grep -q "${ADMIN_USERNAME}"; then
-            echo "✅ Admin user '${ADMIN_USERNAME}' already exists"
-        else
-            # Generate UUID and add user
-            ADMIN_UUID=$(generate_uuid)
-            jq --arg name "${ADMIN_USERNAME}" --arg uuid "${ADMIN_UUID}" \
-               '. += [{"name": $name, "uuid": $uuid, "level": 4, "bypassesPlayerLimit": false}]' \
-               /data/ops.json > /tmp/ops.json.tmp
-            cat /tmp/ops.json.tmp > /data/ops.json
-            rm -f /tmp/ops.json.tmp
-            echo "✅ Admin user '${ADMIN_USERNAME}' added to ops.json"
-        fi
+        # Always update ops.json with correct offline UUID
+        jq --arg name "${ADMIN_USERNAME}" --arg uuid "${ADMIN_UUID}" \
+           'if any(.[]; .name == $name) then map(if .name == $name then .uuid = $uuid else . end) else . + [{"name": $name, "uuid": $uuid, "level": 4, "bypassesPlayerLimit": false}] end' \
+           /data/ops.json > /tmp/ops.json.tmp
+        cat /tmp/ops.json.tmp > /data/ops.json
+        rm -f /tmp/ops.json.tmp
+        echo "✅ Admin user '${ADMIN_USERNAME}' configured in ops.json"
     else
         # Manual JSON editing without jq
-        if ! grep -q "${ADMIN_USERNAME}" /data/ops.json 2>/dev/null; then
-            ADMIN_UUID=$(generate_uuid)
-            echo '[{"name":"'"${ADMIN_USERNAME}"'","uuid":"'"${ADMIN_UUID}"'","level":4,"bypassesPlayerLimit":false}]' > /data/ops.json
-            echo "✅ Admin user '${ADMIN_USERNAME}' added to ops.json (manual method)"
-        else
-            echo "✅ Admin user '${ADMIN_USERNAME}' already exists"
-        fi
+        echo '[{"name":"'"${ADMIN_USERNAME}"'","uuid":"'"${ADMIN_UUID}"'","level":4,"bypassesPlayerLimit":false}]' > /data/ops.json
+        echo "✅ Admin user '${ADMIN_USERNAME}' added to ops.json (manual method)"
     fi
 elif [ ! -s /data/ops.json ] || [ "$(jq length /data/ops.json 2>/dev/null || echo 0)" = "0" ]; then
     # Set up default admin if ops.json is empty
