@@ -40,6 +40,10 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Configure git identity for tagging
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
         TAG="v${{ steps.get_version.outputs.version }}"
         echo "Creating tag $TAG"
 
