@@ -37,6 +37,10 @@ echo "Dragon Egg Lightning Plugin Server"
 echo "Initializing..."
 echo "================================"
 
+# Ensure EULA is accepted
+echo "eula=true" > /data/eula.txt
+echo "✅ EULA accepted"
+
 # Ensure plugins directory exists
 mkdir -p /data/plugins
 
