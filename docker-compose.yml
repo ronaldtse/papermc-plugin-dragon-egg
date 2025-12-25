@@ -2,8 +2,6 @@ services:
   minecraft:
     build:
       context: .
-      args:
-        PLUGIN_VERSION: ${PLUGIN_VERSION}
     image: dragon-egg-lightning:latest
     container_name: ${CONTAINER_NAME}
     restart: unless-stopped

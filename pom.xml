@@ -69,11 +69,11 @@
     </dependencies>
 
     <build>
-        <finalName>DragonEggLightning-1.0.1</finalName>
+        <finalName>DragonEggLightning-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
-                <filtering>false</filtering>
+                <filtering>true</filtering>
             </resource>
         </resources>
         <plugins>

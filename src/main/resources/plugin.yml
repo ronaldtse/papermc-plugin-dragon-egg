@@ -1,5 +1,5 @@
 name: DragonEggLightning
-version: 1.0.1
+version: ${project.version}
 main: com.dragonegg.lightning.DragonEggLightningPlugin
 api-version: '1.21'
 description: Dragon Egg Lightning Ability Plugin

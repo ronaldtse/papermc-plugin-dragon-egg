@@ -12,7 +12,6 @@ jobs:
   integration-test:
     runs-on: ubuntu-latest
     env:
-      PLUGIN_VERSION: "1.0.1"
       CONTAINER_NAME: "papermc-dragonegg"
       MEMORYSIZE: "2G"
       EULA: "TRUE"
@@ -57,8 +56,7 @@ jobs:
 
     - name: Start Paper server with plugin
       run: |
-        export PLUGIN_VERSION="${{ env.PLUGIN_VERSION }}"
-        docker compose build --build-arg PLUGIN_VERSION=${{ env.PLUGIN_VERSION }}
+        docker compose build
         docker compose up -d
         echo "Waiting for server to start..."
 
@@ -211,8 +209,6 @@ jobs:
 
   docker-build-test:
     runs-on: ubuntu-latest
-    env:
-      PLUGIN_VERSION: "1.0.1"
 
     steps:
     - name: Checkout code
@@ -227,16 +223,10 @@ jobs:
     - name: Build plugin JAR
       run: mvn clean package -DskipTests
 
-    - name: Test Docker Compose configuration
+    - name: Test Docker build
       run: |
-        echo "Testing that Docker Compose configuration is valid..."
-        docker compose config > /dev/null
-        echo "✅ Docker Compose configuration is valid"
-
-    - name: Test multi-stage Docker build
-      run: |
-        echo "Testing Docker multi-stage build with plugin compilation..."
-        docker build --build-arg PLUGIN_VERSION=${{ env.PLUGIN_VERSION }} -t dragon-egg-lightning:test .
+        echo "Testing Docker build with plugin..."
+        docker build -t dragon-egg-lightning:test .
         echo "✅ Docker image built successfully"
 
     - name: Verify plugin JAR in built image
@@ -249,7 +239,14 @@ jobs:
     - name: Test JAR file integrity
       run: |
         echo "Testing JAR file integrity..."
-        JAR_FILE="target/DragonEggLightning-${{ env.PLUGIN_VERSION }}.jar"
+        JAR_FILE=$(find target -name "DragonEggLightning-*.jar" | head -1)
+
+        if [ -z "$JAR_FILE" ]; then
+          echo "❌ No JAR file found"
+          exit 1
+        fi
+
+        echo "Found JAR: $JAR_FILE"
 
         # Test JAR can be extracted
         if jar -tf "$JAR_FILE" > /dev/null 2>&1; then

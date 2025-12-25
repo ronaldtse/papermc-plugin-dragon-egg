@@ -12,7 +12,8 @@ else
     exit 1
 fi
 
-# Export variables for Docker
+# Extract version from pom.xml (single source of truth)
+PLUGIN_VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
 export PLUGIN_VERSION
 export ADMIN_USERNAME
 
