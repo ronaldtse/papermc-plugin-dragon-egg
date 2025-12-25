@@ -1,17 +1,14 @@
-# Simple Dockerfile for Dragon Egg Lightning Plugin
-# Uses pre-built JAR file with version support
+# Dockerfile for Dragon Egg Lightning Plugin
+# Version is sourced from pom.xml (single source of truth)
 
 # PaperMC Server with pre-built plugin
 FROM marctv/minecraft-papermc-server:1.21.8
 
-# Build argument for plugin version
-ARG PLUGIN_VERSION=1.0.1
-
 # Install required tools for Ubuntu-based PaperMC image
 RUN apt-get update && apt-get install -y jq uuid-runtime && apt-get clean
 
-# Copy the pre-built plugin JAR (using version from build arg)
-COPY target/DragonEggLightning-${PLUGIN_VERSION}.jar /data/plugins/DragonEggLightning.jar
+# Copy the pre-built plugin JAR (use wildcard to find the versioned JAR)
+COPY target/DragonEggLightning-*.jar /data/plugins/DragonEggLightning.jar
 
 # Verify the plugin was copied successfully - FAIL BUILD IF NOT FOUND
 RUN if [ ! -f "/data/plugins/DragonEggLightning.jar" ]; then \
