@@ -25,7 +25,7 @@ public class LightningAbility implements Ability {
 
   private static final int STRIKE_COUNT = 3;
   private static final long STRIKE_INTERVAL_TICKS = 10L; // 0.5 seconds
-  private static final double DAMAGE_PER_STRIKE = 3.0; // 1.5 hearts
+  private static final double DAMAGE_PER_STRIKE = 4.0; // 2.0 hearts (bypasses armor)
   private static final long COOLDOWN_MILLIS = 60000L; // 60 seconds
   private static final double MAX_RANGE = 50.0;
   private static final String ABILITY_NAME = "Lightning Strike";
@@ -240,8 +240,8 @@ public class LightningAbility implements Ability {
     // Make it visually purple with particles
     createPurpleLightningEffect(targetLocation);
 
-    // Deal damage
-    target.damage(DAMAGE_PER_STRIKE);
+    // Deal armor-bypassing damage directly to health
+    dealDirectDamage(target, DAMAGE_PER_STRIKE);
 
     // Play proper thunder sound
     target.getWorld().playSound(
@@ -258,6 +258,23 @@ public class LightningAbility implements Ability {
       2.0f,
       1.0f
     );
+  }
+
+  /**
+   * Deal direct damage that bypasses armor and enchantments.
+   * This ensures consistent damage regardless of target's armor.
+   *
+   * @param target The target entity
+   * @param damage The amount of damage to deal
+   */
+  private void dealDirectDamage(LivingEntity target, double damage) {
+    if (target == null || target.isDead()) {
+      return;
+    }
+
+    double currentHealth = target.getHealth();
+    double newHealth = Math.max(0, currentHealth - damage);
+    target.setHealth(newHealth);
   }
 
   /**
