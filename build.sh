@@ -113,25 +113,32 @@ echo "Server will be available on port 25565 when started."
 
 # Function to populate server-plugins directory (for use by start-server.sh)
 populate_server_plugins() {
-    echo "📦 Populating server-plugins/ with fresh debug JAR..."
-
-    # Clear server-plugins directory to ensure fresh plugins
-    rm -rf server-plugins/*
+    echo "📦 Populating server-plugins/ with debug JAR..."
 
     # Get git commit for debug build
     GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
     echo "   Git commit: ${GIT_COMMIT}"
 
-    # Build production JAR
-    mvn clean package -DskipTests -q
+    # Only build if JAR doesn't exist (avoid duplicate builds)
+    if [ ! -f "target/DragonEggLightning-${PLUGIN_VERSION}.jar" ]; then
+        echo "   Building JAR (not found)..."
+        mvn package -DskipTests -q
+    else
+        echo "   Using existing JAR (run 'mvn clean' to force rebuild)"
+    fi
 
-    # Create debug JAR with git commit suffix
-    cp target/DragonEggLightning-${PLUGIN_VERSION}.jar "target/DragonEggLightning-${PLUGIN_VERSION}-${GIT_COMMIT}.jar"
+    # Ensure server-plugins directory exists
+    mkdir -p server-plugins
+
+    # Create debug JAR with git commit suffix if not exists
+    if [ ! -f "target/DragonEggLightning-${PLUGIN_VERSION}-${GIT_COMMIT}.jar" ]; then
+        cp target/DragonEggLightning-${PLUGIN_VERSION}.jar "target/DragonEggLightning-${PLUGIN_VERSION}-${GIT_COMMIT}.jar"
+    fi
 
     # Copy debug JAR to server-plugins directory for Docker mount
     cp "target/DragonEggLightning-${PLUGIN_VERSION}-${GIT_COMMIT}.jar" server-plugins/DragonEggLightning.jar
 
-    echo "✅ Fresh debug JAR populated to server-plugins/ (version: ${PLUGIN_VERSION}-${GIT_COMMIT})"
+    echo "✅ Debug JAR populated to server-plugins/ (version: ${PLUGIN_VERSION}-${GIT_COMMIT})"
 }
 
 # Export function for use by other scripts

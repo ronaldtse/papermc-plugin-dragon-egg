@@ -68,11 +68,15 @@ else
     echo ""
 fi
 
-# Build the JAR file first (always needed for Docker)
-echo "🔧 Building plugin JAR..."
-if ! mvn clean package -DskipTests; then
-    echo "✗ Failed to build plugin JAR"
-    exit 1
+# Build the JAR file only if it doesn't exist
+if [ ! -f target/DragonEggLightning-*.jar ]; then
+    echo "🔧 Building plugin JAR..."
+    if ! mvn package -DskipTests; then
+        echo "✗ Failed to build plugin JAR"
+        exit 1
+    fi
+else
+    echo "🔧 Using existing plugin JAR (run 'mvn clean' to force rebuild)"
 fi
 
 echo "Plugin version loaded: ${PLUGIN_VERSION}"
