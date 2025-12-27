@@ -1,0 +1,86 @@
+# DITF Lightning Ability Test
+# Tests the dragon egg lightning ability functionality
+
+name: "Dragon Egg Lightning Ability Test"
+description: "Test that the dragon egg lightning ability works correctly with entities"
+setup:
+  - type: "server_action"
+    server_action: "spawn_entity"
+    name: "TestZombie"
+    entity_type: "zombie"
+    location: [5.0, 64.0, 5.0]
+
+  - type: "server_action"
+    server_action: "spawn_player"
+    name: "TestPlayer"
+    location: [0.0, 64.0, 0.0]
+
+  - type: "server_action"
+    server_action: "give_item"
+    player: "TestPlayer"
+    item: "dragon_egg"
+    count: 1
+
+  - type: "server_action"
+    server_action: "server_execute_command"
+    command: "op"
+    arguments: ["TestPlayer"]
+
+steps:
+  # Player movement and preparation
+  - type: "action"
+    action: "player_move"
+    subject: "TestPlayer"
+    destination_type: "entity"
+    destination: "TestZombie"
+
+  - type: "assertion"
+    assertion: "entity_exists"
+    subject: "TestZombie"
+
+  - type: "action"
+    action: "player_equip_item"
+    subject: "TestPlayer"
+    item: "dragon_egg"
+    slot: "hand"
+
+  - type: "assertion"
+    assertion: "player_inventory_contains"
+    subject: "TestPlayer"
+    item: "dragon_egg"
+    slot: "hand"
+
+  # Execute lightning ability
+  - type: "action"
+    action: "player_execute_command"
+    subject: "TestPlayer"
+    command: "ability"
+    arguments: ["1"]
+
+  - type: "assertion"
+    assertion: "plugin_receives_command"
+    plugin: "DragonEggLightning"
+    command: "ability"
+    subject: "TestPlayer"
+
+  # Wait for lightning effect
+  - type: "wait"
+    wait: 4
+
+  # Verify damage was dealt
+  - type: "server_action"
+    server_action: "get_entity_health"
+    subject: "TestZombie"
+
+  - type: "assertion"
+    assertion: "entity_health_equals"
+    subject: "TestZombie"
+    expected_health: 16.0
+    tolerance: 0.1
+
+  # Cleanup
+  - type: "cleanup"
+    cleanup: "remove_all_test_entities"
+
+  - type: "cleanup"
+    cleanup: "remove_all_test_players"

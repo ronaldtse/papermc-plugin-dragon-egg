@@ -66,6 +66,14 @@
             <version>3.127.0</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- SnakeYAML for YAML DSL parsing -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

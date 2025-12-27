@@ -1,0 +1,95 @@
+# DragonEggLightning Lightning Ability Test Story
+# This YAML story tests the core lightning functionality
+
+story:
+  name: "Lightning Ability Core Test"
+  description: "Test that lightning ability works with unarmored and armored entities"
+
+setup:
+  server:
+    type: "PAPER"
+    version: "1.21.8"
+    online_mode: false
+
+  players:
+    - name: "LightningTester"
+      op: true
+      position: [0, 64, 0]
+      items:
+        - "dragon_egg 5"
+        - "diamond_sword 1"
+
+steps:
+  - name: "Start Server"
+    action: "start_server"
+    timeout: 300
+
+  - name: "Verify Plugin Loaded"
+    action: "check_plugin"
+    plugin: "DragonEggLightning"
+
+  - name: "Spawn Unarmored Zombie"
+    action: "spawn_entity"
+    entity_type: "zombie"
+    name: "UnarmoredZombie"
+    player: "LightningTester"
+
+  - name: "Spawn Armored Zombie"
+    action: "spawn_entity"
+    entity_type: "zombie"
+    name: "ArmoredZombie"
+    player: "LightningTester"
+
+  - name: "Give Armor to Second Zombie"
+    action: "execute_command"
+    command: "replaceitem entity @e[name=ArmoredZombie,limit=1] armor.chest diamond_chestplate"
+    player: "LightningTester"
+
+  - name: "Check Initial Health"
+    action: "verify_health"
+    name: "UnarmoredZombie"
+    expected_health: 20.0
+
+  - name: "Check Initial Health"
+    action: "verify_health"
+    name: "ArmoredZombie"
+    expected_health: 20.0
+
+  - name: "Test Lightning on Unarmored Zombie"
+    action: "execute_command"
+    command: "ability lightning UnarmoredZombie"
+    player: "LightningTester"
+    expected_response_contains: "lightning"
+
+  - name: "Wait for Lightning Strike"
+    action: "wait"
+    duration: 3
+
+  - name: "Verify Unarmored Zombie Health After Lightning"
+    action: "verify_health"
+    name: "UnarmoredZombie"
+    expected_health: 16.0  # Should take 2 hearts (4 HP) damage
+
+  - name: "Test Lightning on Armored Zombie"
+    action: "execute_command"
+    command: "ability lightning ArmoredZombie"
+    player: "LightningTester"
+    expected_response_contains: "lightning"
+
+  - name: "Wait for Lightning Strike"
+    action: "wait"
+    duration: 3
+
+  - name: "Verify Armored Zombie Health After Lightning"
+    action: "verify_health"
+    name: "ArmoredZombie"
+    expected_health: 16.0  # Should also take 2 hearts (armor bypass)
+
+cleanup:
+  action: "stop_server"
+
+expected_results:
+  plugin_loads: true
+  lightning_works: true
+  armor_bypass_works: true
+  damage_consistent: true
