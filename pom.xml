@@ -51,11 +51,11 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Mockito for mocking -->
+        <!-- Mockito for mocking (5.17.0 uses ByteBuddy 1.15.11 supporting Java 23) -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
-            <version>5.8.0</version>
+            <version>5.17.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -99,6 +99,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.2</version>
                 <configuration>
+                    <!-- Enable ByteBuddy experimental for Java 24+ support -->
+                    <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                     <excludes>
                         <!-- Exclude pilaf integration tests - they require real server -->
                         <exclude>**/pilaf/**</exclude>
