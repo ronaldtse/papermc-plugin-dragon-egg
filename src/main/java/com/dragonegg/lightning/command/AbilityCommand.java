@@ -44,10 +44,33 @@ public class AbilityCommand implements CommandExecutor {
 
     Player player = (Player) sender;
 
-    // Check arguments
+    // Handle version/info command
+    if (args.length == 1 && (args[0].equalsIgnoreCase("version") || args[0].equalsIgnoreCase("info"))) {
+      String pluginVersion = plugin.getDescription().getVersion();
+      String pluginName = plugin.getDescription().getName();
+
+      player.sendMessage(
+        Component.text("=== " + pluginName + " Plugin Info ===", NamedTextColor.GOLD)
+      );
+      player.sendMessage(
+        Component.text("Version: " + pluginVersion, NamedTextColor.GREEN)
+      );
+      player.sendMessage(
+        Component.text("Author: " + String.join(", ", plugin.getDescription().getAuthors()), NamedTextColor.BLUE)
+      );
+      player.sendMessage(
+        Component.text("Description: " + plugin.getDescription().getDescription(), NamedTextColor.GRAY)
+      );
+      player.sendMessage(
+        Component.text("Website: " + plugin.getDescription().getWebsite(), NamedTextColor.BLUE)
+      );
+      return true;
+    }
+
+    // Check arguments for ability use
     if (args.length != 1) {
       player.sendMessage(
-        Component.text("Usage: /ability <number>", NamedTextColor.RED)
+        Component.text("Usage: /ability <number> | /ability version", NamedTextColor.RED)
       );
       return true;
     }
