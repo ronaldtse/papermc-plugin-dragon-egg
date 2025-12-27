@@ -22,10 +22,20 @@ echo "================================"
 # Parse arguments
 CLEAN=false
 DEBUG=false
+PRODUCTION=false
 if [[ "$1" == "--clean" ]] || [[ "$1" == "-c" ]]; then
     CLEAN=true
 fi
 if [[ "$1" == "--debug" ]] || [[ "$1" == "-d" ]]; then
+    DEBUG=true
+fi
+if [[ "$1" == "--production" ]] || [[ "$1" == "-p" ]]; then
+    PRODUCTION=true
+    DEBUG=false
+fi
+
+# Default to debug build (with git commit) unless production is specified
+if [ "$PRODUCTION" = false ]; then
     DEBUG=true
 fi
 
@@ -51,8 +61,8 @@ fi
 echo "🔧 Building plugin JAR..."
 echo ""
 
-echo "Running Maven clean and package..."
-mvn clean package
+echo "Running Maven clean and package (skipping tests)..."
+mvn clean package -DskipTests
 
 # Handle debug build with git commit
 if [ "$DEBUG" = true ]; then
@@ -72,7 +82,7 @@ if [ "$DEBUG" = true ]; then
         exit 1
     fi
 else
-    # Find the generated JAR file using the version from pom.xml
+    # Production build - use clean version
     JAR_FILE=$(find target/ -name "DragonEggLightning-${PLUGIN_VERSION}.jar" | head -1)
 fi
 
@@ -83,7 +93,7 @@ if [ -n "$JAR_FILE" ] && [ -f "$JAR_FILE" ]; then
     if [ "$DEBUG" = true ]; then
         echo "  Type: Debug build (with git commit)"
     else
-        echo "  Type: Production build"
+        echo "  Type: Production build (clean version)"
     fi
 else
     echo "✗ Failed to create plugin JAR"
@@ -106,7 +116,7 @@ echo "Server will be available on port 25565 when started."
 
 # Function to populate server-plugins directory (for use by start-server.sh)
 populate_server_plugins() {
-    echo "📦 Populating server-plugins/ with fresh JAR..."
+    echo "📦 Populating server-plugins/ with fresh debug JAR..."
 
     # Clear server-plugins directory to ensure fresh plugins
     rm -rf server-plugins/*
