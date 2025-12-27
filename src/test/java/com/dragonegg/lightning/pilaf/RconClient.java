@@ -4,25 +4,26 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 
 /**
- * OOP-based RCON client for server management
- * Handles connection, authentication, and command execution
+ * RCON client for Minecraft server management
+ * Implements the Source RCON protocol used by Minecraft servers
  */
 public class RconClient {
 
-    private static final int PACKET_SIZE_HEADER = 14;
-    private static final int RESPONSE_PACKET_ID = 0x12345678;
-    private static final int AUTH_PACKET_ID = 0x12345678;
+    private static final int SERVERDATA_AUTH = 3;
+    private static final int SERVERDATA_AUTH_RESPONSE = 2;
+    private static final int SERVERDATA_EXECCOMMAND = 2;
+    private static final int SERVERDATA_RESPONSE_VALUE = 0;
 
     private final String host;
     private final int port;
     private final String password;
     private Socket socket;
-    private DataInputStream inputStream;
-    private DataOutputStream outputStream;
+    private InputStream inputStream;
+    private OutputStream outputStream;
     private boolean authenticated;
+    private int requestId = 1;
 
     public RconClient(String host, int port, String password) {
         this.host = host;
@@ -37,12 +38,13 @@ public class RconClient {
     public boolean connect() {
         try {
             socket = new Socket(host, port);
-            inputStream = new DataInputStream(socket.getInputStream());
-            outputStream = new DataOutputStream(socket.getOutputStream());
+            socket.setSoTimeout(5000);
+            inputStream = socket.getInputStream();
+            outputStream = socket.getOutputStream();
 
             // Authenticate with server
             if (authenticate()) {
-                System.out.println("✅ RCON client connected successfully");
+                System.out.println("RCON client connected successfully");
                 return true;
             } else {
                 disconnect();
@@ -50,7 +52,7 @@ public class RconClient {
             }
 
         } catch (IOException e) {
-            System.out.println("❌ Failed to connect to RCON server: " + e.getMessage());
+            System.out.println("Failed to connect to RCON server: " + e.getMessage());
             return false;
         }
     }
@@ -60,31 +62,27 @@ public class RconClient {
      */
     private boolean authenticate() {
         try {
-            // Send auth packet
-            int requestId = AUTH_PACKET_ID;
-            String command = password;
-            int packetSize = 4 + command.length() + 2;
-
-            ByteBuffer buffer = ByteBuffer.allocate(PACKET_SIZE_HEADER + command.length());
-            buffer.order(ByteOrder.LITTLE_ENDIAN);
-            buffer.putInt(packetSize);
-            buffer.putInt(requestId);
-            buffer.putInt(2); // AUTH command
-            buffer.put(command.getBytes());
-            buffer.put((byte) 0); // Null terminator
-
-            outputStream.write(buffer.array());
-            outputStream.flush();
+            int authId = requestId++;
+            sendPacket(authId, SERVERDATA_AUTH, password);
 
             // Read response
             RconPacket response = readPacket();
-            if (response != null && response.getRequestId() == AUTH_PACKET_ID) {
+            if (response == null) {
+                System.out.println("Authentication failed: no response");
+                return false;
+            }
+
+            // Authentication successful if request ID matches (not -1)
+            if (response.getRequestId() == authId || response.getRequestId() != -1) {
                 authenticated = true;
                 return true;
+            } else {
+                System.out.println("Authentication failed: invalid password");
+                return false;
             }
 
         } catch (IOException e) {
-            System.out.println("❌ Authentication failed: " + e.getMessage());
+            System.out.println("Authentication failed: " + e.getMessage());
         }
 
         return false;
@@ -99,48 +97,76 @@ public class RconClient {
         }
 
         try {
-            int requestId = RESPONSE_PACKET_ID;
-            int packetSize = 4 + command.length() + 2;
-
-            ByteBuffer buffer = ByteBuffer.allocate(PACKET_SIZE_HEADER + command.length());
-            buffer.order(ByteOrder.LITTLE_ENDIAN);
-            buffer.putInt(packetSize);
-            buffer.putInt(requestId);
-            buffer.putInt(2); // EXEC command
-            buffer.put(command.getBytes());
-            buffer.put((byte) 0); // Null terminator
-
-            outputStream.write(buffer.array());
-            outputStream.flush();
+            int cmdId = requestId++;
+            sendPacket(cmdId, SERVERDATA_EXECCOMMAND, command);
 
             // Read response
             RconPacket response = readPacket();
-            if (response != null && response.getRequestId() == requestId) {
+            if (response != null) {
                 return response.getBody();
             }
 
         } catch (IOException e) {
-            System.out.println("❌ Command execution failed: " + e.getMessage());
+            System.out.println("Command execution failed: " + e.getMessage());
         }
 
         return null;
     }
 
     /**
+     * Send RCON packet
+     */
+    private void sendPacket(int id, int type, String body) throws IOException {
+        byte[] bodyBytes = body.getBytes("UTF-8");
+        int size = 4 + 4 + bodyBytes.length + 2; // id + type + body + 2 null terminators
+
+        ByteBuffer buffer = ByteBuffer.allocate(4 + size);
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.putInt(size);
+        buffer.putInt(id);
+        buffer.putInt(type);
+        buffer.put(bodyBytes);
+        buffer.put((byte) 0);
+        buffer.put((byte) 0);
+
+        outputStream.write(buffer.array());
+        outputStream.flush();
+    }
+
+    /**
      * Read RCON packet from server
      */
     private RconPacket readPacket() throws IOException {
-        int size = inputStream.readInt();
-        if (size < 14) return null;
+        // Read size (4 bytes, little-endian)
+        byte[] sizeBytes = new byte[4];
+        if (inputStream.read(sizeBytes) != 4) {
+            return null;
+        }
+        int size = ByteBuffer.wrap(sizeBytes).order(ByteOrder.LITTLE_ENDIAN).getInt();
 
-        int requestId = inputStream.readInt();
-        int type = inputStream.readInt();
+        if (size < 10) {
+            return null;
+        }
 
-        byte[] bodyBytes = new byte[size - 8];
-        inputStream.readFully(bodyBytes);
-        inputStream.readByte(); // Null terminator
+        // Read rest of packet
+        byte[] packetBytes = new byte[size];
+        int totalRead = 0;
+        while (totalRead < size) {
+            int read = inputStream.read(packetBytes, totalRead, size - totalRead);
+            if (read == -1) break;
+            totalRead += read;
+        }
 
-        String body = new String(bodyBytes);
+        ByteBuffer packet = ByteBuffer.wrap(packetBytes).order(ByteOrder.LITTLE_ENDIAN);
+        int requestId = packet.getInt();
+        int type = packet.getInt();
+
+        // Body is remaining bytes minus 2 null terminators
+        int bodyLength = size - 10;
+        byte[] bodyBytes = new byte[bodyLength];
+        packet.get(bodyBytes);
+
+        String body = new String(bodyBytes, "UTF-8").trim();
         return new RconPacket(requestId, type, body);
     }
 
@@ -154,10 +180,10 @@ public class RconClient {
             if (socket != null && !socket.isClosed()) socket.close();
 
             authenticated = false;
-            System.out.println("🧹 RCON client disconnected");
+            System.out.println("RCON client disconnected");
 
         } catch (IOException e) {
-            System.out.println("❌ Error during disconnection: " + e.getMessage());
+            System.out.println("Error during disconnection: " + e.getMessage());
         }
     }
 

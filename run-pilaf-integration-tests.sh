@@ -67,16 +67,28 @@ check_prerequisites() {
 
 # Start PaperMC server
 start_server() {
-    log_info "🚀 Starting PaperMC server with PILAF plugin..."
+    log_info "Starting PaperMC server with PILAF plugin..."
 
     # Check if server is already running
     if docker ps | grep -q papermc-dragonegg; then
-        log_warning "Server container is already running"
+        log_warning "Server container is already running - skipping build/start"
         return 0
     fi
 
-    # Start server
-    if ./start-server.sh; then
+    # Check if JAR exists - only build if missing
+    if [ ! -f target/DragonEggLightning-*.jar ]; then
+        log_info "Building plugin JAR..."
+        if ! mvn package -DskipTests -q; then
+            log_error "Failed to build plugin JAR"
+            exit 1
+        fi
+    else
+        log_info "Using existing plugin JAR (run mvn clean to force rebuild)"
+    fi
+
+    # Start server using docker-compose directly (faster than start-server.sh)
+    log_info "Starting Docker container..."
+    if docker-compose up -d; then
         log_success "Server startup initiated"
     else
         log_error "Failed to start server"
