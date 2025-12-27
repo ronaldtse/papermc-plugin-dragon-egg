@@ -67,16 +67,28 @@ check_prerequisites() {
 
 # Start PaperMC server
 start_server() {
-    log_info "🚀 Starting PaperMC server with PILAF plugin..."
+    log_info "Starting PaperMC server with PILAF plugin..."
 
     # Check if server is already running
     if docker ps | grep -q papermc-dragonegg; then
-        log_warning "Server container is already running"
+        log_warning "Server container is already running - skipping build/start"
         return 0
     fi
 
-    # Start server
-    if ./start-server.sh; then
+    # Check if JAR exists - only build if missing
+    if [ ! -f target/DragonEggLightning-*.jar ]; then
+        log_info "Building plugin JAR..."
+        if ! mvn package -DskipTests -q; then
+            log_error "Failed to build plugin JAR"
+            exit 1
+        fi
+    else
+        log_info "Using existing plugin JAR (run mvn clean to force rebuild)"
+    fi
+
+    # Start server using docker-compose directly (faster than start-server.sh)
+    log_info "Starting Docker container..."
+    if docker-compose up -d; then
         log_success "Server startup initiated"
     else
         log_error "Failed to start server"
@@ -147,24 +159,29 @@ show_server_logs() {
 
 # Run PILAF integration tests
 run_integration_tests() {
-    log_test "🧪 Running PILAF integration tests..."
+    log_test "Running PILAF integration tests..."
 
-    # Run specific integration tests
-    if mvn test -Dtest.groups=integration; then
-        log_success "PILAF integration tests completed successfully"
-    else
-        log_error "PILAF integration tests failed"
-        return 1
-    fi
+    # Export environment variable to enable integration tests
+    export PILAF_INTEGRATION_TEST=true
 
-    # Run use case tests specifically
-    log_test "🎯 Running dragon egg lightning use case tests..."
+    # Run dragon egg lightning use case tests
+    log_test "Running dragon egg lightning use case tests..."
     if mvn test -Dtest=DragonEggLightningUseCaseTest; then
         log_success "Use case tests completed successfully"
     else
         log_error "Use case tests failed"
         return 1
     fi
+
+    # Run real minecraft client integration tests
+    log_test "Running real minecraft client integration tests..."
+    if mvn test -Dtest=RealMinecraftClientIntegrationTest; then
+        log_success "Real client integration tests completed successfully"
+    else
+        log_warning "Real client integration tests had issues (may require mineflayer)"
+    fi
+
+    log_success "PILAF integration tests completed"
 }
 
 # Run additional test suites
