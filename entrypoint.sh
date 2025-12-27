@@ -55,39 +55,27 @@ echo "✅ EULA accepted"
 # Ensure plugins directory exists
 mkdir -p /data/plugins
 
-# List all files in plugins directory for debugging
 echo "📂 Checking plugins directory..."
 ls -la /data/plugins/
 
-# Check if plugins directory is empty (volume mount might have cleared it)
-if [ ! "$(ls -A /data/plugins/)" ]; then
-    echo "⚠️  Plugins directory is empty, checking for plugin in base image..."
+# ALWAYS copy fresh plugins from /opt/minecraft/plugins/ to /data/plugins/
+echo "🔄 Copying fresh plugins from /opt/minecraft/plugins/ to /data/plugins/..."
+if [ -d "/opt/minecraft/plugins/" ] && [ "$(ls -A /opt/minecraft/plugins/)" ]; then
+    echo "✅ Found fresh plugins in /opt/minecraft/plugins/"
 
-    # Check multiple possible locations where the plugin might be in the base image
-    PLUGIN_FOUND_IN_IMAGE=false
+    # Copy ALL plugin JAR files, overwriting existing ones
+    cp -f /opt/minecraft/plugins/*.jar /data/plugins/ 2>/dev/null || true
 
-    if [ -f "/opt/minecraft/plugins/DragonEggLightning.jar" ]; then
-        echo "✅ Found plugin in /opt/minecraft/plugins/"
-        cp /opt/minecraft/plugins/DragonEggLightning.jar /data/plugins/
-        PLUGIN_FOUND_IN_IMAGE=true
-    elif [ -f "/plugins/DragonEggLightning.jar" ]; then
-        echo "✅ Found plugin in /plugins/"
-        cp /plugins/DragonEggLightning.jar /data/plugins/
-        PLUGIN_FOUND_IN_IMAGE=true
-    elif [ -f "/data/plugins-backup/DragonEggLightning.jar" ]; then
-        echo "✅ Found plugin in /data/plugins-backup/"
-        cp /data/plugins-backup/DragonEggLightning.jar /data/plugins/
-        PLUGIN_FOUND_IN_IMAGE=true
-    fi
+    # Copy any other plugin files (config files, etc.)
+    cp -rf /opt/minecraft/plugins/* /data/plugins/ 2>/dev/null || true
 
-    if [ "$PLUGIN_FOUND_IN_IMAGE" = false ]; then
-        echo "❌ Plugin not found in base image"
-        echo "Checking for any JAR files in common locations..."
-        find /opt/minecraft -name "*.jar" -type f 2>/dev/null || true
-        find / -name "DragonEggLightning*.jar" -type f 2>/dev/null || true
-    else
-        echo "✅ Plugin copied to volume successfully"
-    fi
+    echo "✅ Fresh plugins copied to /data/plugins/ (overwritten old ones)"
+
+    # Show what was copied
+    echo "📋 Fresh plugins in /data/plugins/:"
+    ls -la /data/plugins/
+else
+    echo "⚠️  No plugins found in /opt/minecraft/plugins/"
 fi
 
 # Ensure ops.json exists and is valid
@@ -169,6 +157,7 @@ PLUGIN_FOUND=false
 if [ -f /data/plugins/DragonEggLightning.jar ]; then
     echo "✅ Dragon Egg Lightning plugin found: DragonEggLightning.jar"
     echo "   Size: $(du -h /data/plugins/DragonEggLightning.jar | cut -f1)"
+    echo "   Last modified: $(stat -f "%Sm" /data/plugins/DragonEggLightning.jar 2>/dev/null || stat -c "%y" /data/plugins/DragonEggLightning.jar)"
     PLUGIN_FOUND=true
 fi
 

@@ -18,6 +18,8 @@ services:
     volumes:
       # Persist world data
       - ./server-data:/data:rw
+      # Mount fresh plugins directory (separate from world data)
+      - ./server-plugins:/opt/minecraft/plugins:rw
     stdin_open: true
     tty: true
     networks:

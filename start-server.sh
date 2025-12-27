@@ -51,6 +51,23 @@ echo "================================"
 echo "Starting Paper MC Server"
 echo "================================"
 
+# Check if server is already running and stop it
+CONTAINER_NAME=${CONTAINER_NAME:-papermc-dragonegg}
+echo "🔍 Checking if server is already running..."
+
+if docker ps --format "table {{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
+    echo "⚠️  Server is currently running! Stopping it first..."
+    docker-compose down
+    echo "✅ Server stopped successfully!"
+    echo ""
+
+    # Wait a moment for cleanup
+    sleep 2
+else
+    echo "✅ No running server found, proceeding to start..."
+    echo ""
+fi
+
 # Build the JAR file first (always needed for Docker)
 echo "🔧 Building plugin JAR..."
 if ! mvn clean package -DskipTests; then
@@ -75,7 +92,7 @@ if [ "$RESET" = true ]; then
     echo "🔄 REBUILD MODE: Deleting all Docker volumes and server data..."
     echo ""
 
-    # Stop and remove container
+    # Stop and remove container (already stopped above, but ensure cleanup)
     echo "Stopping and removing container..."
     docker-compose down 2>/dev/null || true
     docker stop ${CONTAINER_NAME:-papermc-dragonegg} 2>/dev/null || true
@@ -105,6 +122,24 @@ echo ""
 echo "Using PLUGIN_VERSION: ${PLUGIN_VERSION}"
 echo "Using ADMIN_USERNAME: ${ADMIN_USERNAME}"
 
+# Check if plugin JAR exists and force cache cleanup
+JAR_FILE=$(find target/ -name "DragonEggLightning-${PLUGIN_VERSION}.jar" | head -1)
+if [ -n "$JAR_FILE" ]; then
+    echo "✓ Plugin JAR found: $JAR_FILE"
+
+    # CRITICAL: Force remove old Docker images to ensure fresh build with latest JAR
+    echo "🧹 Cleaning Docker cache to ensure latest JAR is used..."
+    docker rmi dragon-egg-lightning:latest 2>/dev/null || true
+    docker image prune -f
+
+    # Double-check the JAR file is fresh
+    JAR_MODIFIED=$(stat -f %m "$JAR_FILE" 2>/dev/null || stat -c %Y "$JAR_FILE" 2>/dev/null)
+    echo "📅 JAR file last modified: $(date -r $JAR_MODIFIED '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d @$JAR_MODIFIED '+%Y-%m-%d %H:%M:%S')"
+else
+    echo "✗ Plugin JAR not found: DragonEggLightning-${PLUGIN_VERSION}.jar"
+    exit 1
+fi
+
 # Build using docker-compose with environment variables (always rebuild)
 if ! docker-compose build --no-cache; then
     echo "✗ Failed to build Docker image"
@@ -112,13 +147,19 @@ if ! docker-compose build --no-cache; then
 fi
 
 echo "✅ Docker image built successfully with plugin version ${PLUGIN_VERSION}!"
-echo ""
 
-# Check if plugin JAR exists (for reference)
-JAR_FILE=$(find target/ -name "DragonEggLightning-${PLUGIN_VERSION}.jar" | head -1)
-if [ -n "$JAR_FILE" ]; then
-    echo "✓ Plugin JAR found: $JAR_FILE"
-fi
+
+# Source build.sh to get the populate_server_plugins function
+source build.sh
+
+# Populate server-plugins using build.sh logic (DRY principle)
+populate_server_plugins
+
+
+echo "✅ Fresh debug JAR populated to server-plugins/ (version: ${PLUGIN_VERSION}-${GIT_COMMIT})"
+
+
+echo ""
 
 echo "✓ Server will be configured with settings from .env file"
 echo "✓ Plugin version: ${PLUGIN_VERSION}"
