@@ -17,11 +17,12 @@ import java.util.Map;
  * then execute lightning to hit zombies and verify status
  *
  * Prerequisites for running these tests:
- * 1. Start Docker server: docker-compose up -d
- * 2. Wait for server to be ready (check logs)
- * 3. Set PILAF_INTEGRATION_TEST=true environment variable
+ * 1. Create .env file with required settings (copy from .env.example)
+ * 2. Start Docker server: ./start-server.sh
+ * 3. Wait for server to be ready (check logs with: docker logs -f papermc-dragonegg)
+ * 4. Run tests with: PILAF_INTEGRATION_TEST=true mvn test -Dtest=DragonEggLightningUseCaseTest
  *
- * Or run with: PILAF_INTEGRATION_TEST=true mvn test -Dtest=DragonEggLightningUseCaseTest
+ * Or use the convenience script: ./run-pilaf-integration-tests.sh
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DragonEggLightningUseCaseTest {

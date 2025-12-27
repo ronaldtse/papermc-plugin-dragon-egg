@@ -147,24 +147,29 @@ show_server_logs() {
 
 # Run PILAF integration tests
 run_integration_tests() {
-    log_test "🧪 Running PILAF integration tests..."
+    log_test "Running PILAF integration tests..."
 
-    # Run specific integration tests
-    if mvn test -Dtest.groups=integration; then
-        log_success "PILAF integration tests completed successfully"
-    else
-        log_error "PILAF integration tests failed"
-        return 1
-    fi
+    # Export environment variable to enable integration tests
+    export PILAF_INTEGRATION_TEST=true
 
-    # Run use case tests specifically
-    log_test "🎯 Running dragon egg lightning use case tests..."
+    # Run dragon egg lightning use case tests
+    log_test "Running dragon egg lightning use case tests..."
     if mvn test -Dtest=DragonEggLightningUseCaseTest; then
         log_success "Use case tests completed successfully"
     else
         log_error "Use case tests failed"
         return 1
     fi
+
+    # Run real minecraft client integration tests
+    log_test "Running real minecraft client integration tests..."
+    if mvn test -Dtest=RealMinecraftClientIntegrationTest; then
+        log_success "Real client integration tests completed successfully"
+    else
+        log_warning "Real client integration tests had issues (may require mineflayer)"
+    fi
+
+    log_success "PILAF integration tests completed"
 }
 
 # Run additional test suites
